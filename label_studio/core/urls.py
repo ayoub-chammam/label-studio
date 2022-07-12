@@ -64,6 +64,8 @@ urlpatterns = [
     re_path(r'^', include('ml.urls')),
     re_path(r'^', include('webhooks.urls')),
     re_path(r'^', include('labels_manager.urls')),
+    # added weak supervision urls
+    re_path(r'^', include('weak_supervision.urls')),
 
     re_path(r'data/local-files/', views.localfiles_data, name="localfiles_data"),
 
