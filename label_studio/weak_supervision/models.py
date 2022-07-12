@@ -1,3 +1,4 @@
+from tracemalloc import start
 from django.db import models
 from projects.models import Project
 from tasks.models import Task
@@ -31,6 +32,36 @@ class labelling_function(models.Model):
 
     def __str__(self):
         return self.name
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+
+class weak_annotation_logs(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
+    spacy_doc = models.JSONField('doc', default=None , help_text='SpaCy doc file relative to each Task in JSON Format')
+
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a spacy model was run')
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a spacy annotation was updated (added spans)')
+
+    
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+    
+
+class results(models.Model):
+    function = models.ForeignKey(labelling_function, on_delete=models.CASCADE, help_text='labelling function ID')
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
+
+    start = models.IntegerField(_('start position'), default=0, help_text='start position of entity')
+    end = models.IntegerField(_('end_position'), default=0, help_text='end position of entitiy')
+    content = models.TextField(default=None, help_text='text of the entity')
+    label = models.CharField(max_length=60, help_text='label of the entity')
+
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
 
     def has_permission(self, user):
         return self.project.has_permission(user)

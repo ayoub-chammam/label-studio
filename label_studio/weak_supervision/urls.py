@@ -8,13 +8,15 @@ router = DefaultRouter()
 
 
 # CRUD
-router.register(r'labelling_functions', api.labelling_functions_CRUD_API, basename='CRUD_LF')
+router.register(r'', api.labelling_functions_CRUD_API, basename='CRUD_LF')
+
+router.register(r'spacy_apply', api.spacy_generator_API, basename='spacy_apply')
 
 _api_urlpatterns = router.urls
 
 
 urlpatterns = [
-    path('', include((_api_urlpatterns, app_name), namespace='api_labelling_functions')),
+    path('labelling_functions/', include((_api_urlpatterns, app_name), namespace='api_labelling_functions')),
 ]
 
 
