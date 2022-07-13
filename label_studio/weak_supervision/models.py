@@ -55,13 +55,15 @@ class results(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
     task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
 
-    start = models.IntegerField(_('start position'), default=0, help_text='start position of entity')
-    end = models.IntegerField(_('end_position'), default=0, help_text='end position of entitiy')
-    content = models.TextField(default=None, help_text='text of the entity')
-    label = models.CharField(max_length=60, help_text='label of the entity')
+    start = models.IntegerField(_('start position'), null=True, help_text='start position of entity')
+    end = models.IntegerField(_('end_position'), null=True, help_text='end position of entitiy')
+    text = models.TextField(null=True, help_text='text of the entity')
+    label = models.CharField(max_length=60, null=True, help_text='label of the entity')
 
     created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
     updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
 
     def has_permission(self, user):
         return self.project.has_permission(user)
+
+

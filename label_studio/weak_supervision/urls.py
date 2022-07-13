@@ -2,23 +2,25 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from . import api
 
-app_name = "labelling_functions"
+app_name = "labelling functions"
 
 router = DefaultRouter()
 
 
 # CRUD
-router.register(r'', api.labelling_functions_CRUD_API, basename='CRUD_LF')
+router.register(r'creator', api.labelling_functions_CRUD_API, basename='CRUD_LF')
 
-router.register(r'spacy_apply', api.spacy_generator_API, basename='spacy_apply')
+router.register(r'applier', api.labelling_function_logsAPI, basename='function_apply')
+router.register(r'doc_applier', api.spacy_generator_API, basename='spacy_apply')
 
-_api_urlpatterns = router.urls
+
+_api_LFs_urlpatterns = router.urls
 
 
 urlpatterns = [
-    path('labelling_functions/', include((_api_urlpatterns, app_name), namespace='api_labelling_functions')),
-]
+    path('labeling_functions/', include((_api_LFs_urlpatterns, app_name), namespace='api-LFs')),
 
+]
 
 
 
