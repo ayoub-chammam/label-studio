@@ -36,21 +36,20 @@ class labelling_function(models.Model):
     def has_permission(self, user):
         return self.project.has_permission(user)
 
-class weak_annotation_logs(models.Model):
+class weak_annotation_log(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
     task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
+    text = models.TextField(default=None, null=True, help_text='Corresponding text')
     spacy_doc = models.JSONField('doc', default=None , help_text='SpaCy doc file relative to each Task in JSON Format')
 
     created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a spacy model was run')
     updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a spacy annotation was updated (added spans)')
 
-    
-
     def has_permission(self, user):
         return self.project.has_permission(user)
     
 
-class results(models.Model):
+class result(models.Model):
     function = models.ForeignKey(labelling_function, on_delete=models.CASCADE, help_text='labelling function ID')
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
     task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
@@ -63,7 +62,33 @@ class results(models.Model):
     created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
     updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
 
+    result = models.TextField('result', null=True)
+    model_version = models.TextField('labeling_function', null=True)
     def has_permission(self, user):
         return self.project.has_permission(user)
 
+
+
+class aggregate_result(models.Model):
+    templates = (
+       ('HMM', _('hidden markov model')),
+       ('Majority Voting', _('Majroity Voting')),
+       )
+    model_name = models.CharField(max_length=60, help_text='name of the Aggregation model')
+    model_type = models.CharField(choices= templates, max_length=60)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
+    annotation = models.TextField(null=True, help_text='text of the entity')
+
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
+    
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+
+
+class metric(models.Model):
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
 

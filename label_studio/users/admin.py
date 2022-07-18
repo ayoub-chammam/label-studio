@@ -11,6 +11,8 @@ from ml.models import MLBackend, MLBackendTrainJob
 from tasks.models import Task, Annotation, Prediction
 from organizations.models import Organization, OrganizationMember
 
+from weak_supervision.models import labelling_function, weak_annotation_log, result, aggregate_result
+
 
 class UserAdminShort(UserAdmin):
 
@@ -42,6 +44,11 @@ admin.site.register(Annotation)
 admin.site.register(Prediction)
 admin.site.register(Organization)
 admin.site.register(OrganizationMember)
+
+admin.site.register(labelling_function)
+admin.site.register(weak_annotation_log)
+admin.site.register(result)
+admin.site.register(aggregate_result)
 
 # remove unused django groups
 admin.site.unregister(Group)

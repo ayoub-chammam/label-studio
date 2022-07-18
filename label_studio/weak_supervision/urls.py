@@ -12,6 +12,10 @@ router.register(r'creator', api.labelling_functions_CRUD_API, basename='CRUD_LF'
 
 router.register(r'applier', api.labelling_function_logsAPI, basename='function_apply')
 router.register(r'doc_applier', api.spacy_generator_API, basename='spacy_apply')
+router.register(r'gen_res', api.lf_results_API, basename='lf_results')
+
+router.register(r'agg_results', api.aggregate_results_API, basename='agg_apply')
+
 
 
 _api_LFs_urlpatterns = router.urls

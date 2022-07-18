@@ -1,4 +1,4 @@
-from .models import labelling_function, weak_annotation_logs, results
+from .models import aggregate_result, labelling_function, weak_annotation_log, result
 from rest_framework import serializers
 
 class labelling_function_serializer(serializers.ModelSerializer):
@@ -10,12 +10,20 @@ class labelling_function_serializer(serializers.ModelSerializer):
 class labelling_function_results_serializer(serializers.ModelSerializer):
 
     class Meta:
-        model = results
+        model = result
         fields = ['id', 'function']
 
 
 class weak_annotation_serializer(serializers.ModelSerializer):
 
     class Meta:
-        model = weak_annotation_logs
+        model = weak_annotation_log
         fields = ['project']
+
+
+
+class aggregate_results_serializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = aggregate_result
+        fields = ['model_name', 'model_type', 'project']
