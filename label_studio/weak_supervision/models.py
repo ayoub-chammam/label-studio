@@ -67,6 +67,20 @@ class result(models.Model):
     def has_permission(self, user):
         return self.project.has_permission(user)
 
+class aggregation_model(models.Model):
+    templates = (
+       ('HMM', _('hidden markov model')),
+       ('Majority Voting', _('Majroity Voting')),
+       )
+    model_name = models.CharField(max_length=60, help_text='name of the Aggregation model')
+    model_type = models.CharField(choices= templates, max_length=60)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
+    
+    def has_permission(self, user):
+        return self.project.has_permission(user)
 
 
 class aggregate_result(models.Model):
@@ -88,6 +102,21 @@ class aggregate_result(models.Model):
 
 
 class metric(models.Model):
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+    function = models.ForeignKey(labelling_function, on_delete=models.CASCADE, help_text='labelling function ID', null=True)
+    model = models.ForeignKey(aggregation_model, on_delete=models.CASCADE, help_text='model ID', null=True)
+
+    label = models.CharField(max_length=60, null=True, help_text='label of the entity')
+    coverage = models.FloatField(null=True)
+    conflicts = models.FloatField(null=True)
+    overlaps = models.FloatField(null=True)
+    
+    precision = models.FloatField(null=True)
+    recall = models.FloatField(null=True)
+    f1_score = models.FloatField(null=True)
+
+    results = models.IntegerField(null=True)
 
     def has_permission(self, user):
         return self.project.has_permission(user)

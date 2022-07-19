@@ -1,10 +1,9 @@
-from pyexpat import model
 from rest_framework import viewsets, mixins
 from django.conf import settings
 from rest_framework.response import Response
 
-from .serializers import aggregate_results_serializer, labelling_function_serializer, weak_annotation_serializer, labelling_function_results_serializer
-from .models import aggregate_result, labelling_function, result, weak_annotation_log
+from .serializers import aggregate_results_serializer, aggregation_model_serializer, labelling_function_serializer, metrics_applier_serializer, weak_annotation_serializer, labelling_function_results_serializer
+from .models import aggregate_result, aggregation_model, labelling_function, metric, result, weak_annotation_log
 from tasks.models import Task
 from .labelling_templates.string_templates import *
 
@@ -12,6 +11,7 @@ from skweak.gazetteers import GazetteerAnnotator, Trie
 import spacy
 from spacy.tokens import Doc
 import skweak
+from skweak.analysis import LFAnalysis
 
 ############################################ # crud labelling function ############################################
 # Labelling Function CRUD
@@ -130,6 +130,14 @@ class lf_results_API(viewsets.GenericViewSet, mixins.CreateModelMixin):
         # return super().perform_create(serializer)
 
 
+##################### # defining an aggregation model      ##################################
+class aggregationModelAPI(mixins.CreateModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    serializer_class = aggregation_model_serializer
+    queryset = aggregation_model.objects.all()
+    def perform_create(self, serializer):
+        return super().perform_create(serializer)
+
+
 ##################### # update spacy docs to include aggregation results            ##################################
 ##################### # apply aggregate model and save results in aggregate_results ##################################
 
@@ -198,9 +206,77 @@ class aggregate_results_API(mixins.CreateModelMixin, viewsets.GenericViewSet, mi
             )
             uuid += 1
         
-        # bulk save  annotations of agg model
+        # bulk save annotations of agg model
         aggregate_result.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
 
         # return super().perform_create(serializer)
 
 ########################### # calculate metrics over spacy docs (coverage, conflicts, overlaps) ##################################
+class metrics_calculatorAPI(mixins.CreateModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    serializer_class = metrics_applier_serializer
+    queryset = result.objects.all()
+    def perform_create(self, serializer):
+        nlp = spacy.load('en_core_web_sm')
+        project = serializer.validated_data['project']
+
+        tasks = Task.objects.all().filter(project_id= project)
+
+        # checking correct start id
+        try:
+            uuid = metric.objects.latest('id').id
+        except:
+            uuid = 0
+
+        # getting docs
+        docs = []
+        for task in tasks:
+            doc = weak_annotation_log.objects.get(task_id=task).spacy_doc
+            doc = Doc(nlp.vocab).from_json(doc)
+            docs.append(doc)
+        
+        # applying analyser
+        analyzer = LFAnalysis(docs,['PER','LOC', 'ORG', 'MISC'])
+
+        print('---------------------------')      
+        lf_names = list(labelling_function.objects.values_list('name', flat=True))
+        model_names = list(aggregate_result.objects.values_list('model_name',flat=True).distinct())
+        
+        print(model_names)
+
+        objs = []
+        # getting scores into dicts
+        overlaps = analyzer.lf_overlaps().to_dict()
+        coverages = analyzer.lf_coverages().to_dict()
+        conflicts = analyzer.lf_conflicts().to_dict()
+
+        fcts = list(overlaps.keys())
+        labels = ['PER','LOC','ORG','MISC']
+        print(fcts)
+        # getting scores
+        for fct in fcts:
+            for label in labels:
+                if fct in lf_names:
+                    objs.append(
+                        metric(
+                            id = uuid + 1,
+                            project = project, function = labelling_function.objects.get(name=fct), label = label,
+                            coverage = coverages[fct][label],
+                            conflicts = conflicts[fct][label],
+                            overlaps = overlaps[fct][label],
+                        )
+                    )
+                    uuid += 1                    
+                elif fct in model_names:
+                    objs.append(
+                        metric( 
+                            id = uuid + 1,
+                            project = project, model = aggregation_model.objects.get(model_name=fct), label = label,
+                            coverage = coverages[fct][label],
+                            conflicts = conflicts[fct][label],
+                            overlaps = overlaps[fct][label],
+                        )
+                    )
+                    uuid += 1
+        metric.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
+
+        return super().perform_create(serializer)
