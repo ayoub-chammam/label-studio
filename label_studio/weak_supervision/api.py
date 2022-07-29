@@ -1,17 +1,23 @@
-from rest_framework import viewsets, mixins
 from django.conf import settings
+from rest_framework import viewsets, mixins
 from rest_framework.response import Response
 
-from .serializers import aggregate_results_serializer, aggregation_model_serializer, labelling_function_serializer, metrics_applier_serializer, weak_annotation_serializer, labelling_function_results_serializer
-from .models import aggregate_result, aggregation_model, labelling_function, metric, result, weak_annotation_log
 from tasks.models import Task
-from .labelling_templates.string_templates import *
+from .models import aggregate_result, aggregation_model, labelling_function, metric, result, datadoc
+from .serializers import aggregate_results_serializer, aggregation_model_serializer, labelling_function_serializer, metrics_applier_serializer, datadoc_serializer, labelling_function_results_serializer
 
-from skweak.gazetteers import GazetteerAnnotator, Trie
+from .utils import get_keywords_from_content, get_latest_idx, get_lf_results
+from .templates.string_templates import *
+
 import spacy
-from spacy.tokens import Doc
 import skweak
+from spacy.tokens import Doc
+from skweak.heuristics import RegexAnnotator, FunctionAnnotator
+from skweak.gazetteers import GazetteerAnnotator, Trie
 from skweak.analysis import LFAnalysis
+from skweak import aggregation
+
+
 
 ############################################ # crud labelling function ############################################
 # Labelling Function CRUD
@@ -20,67 +26,77 @@ class labelling_functions_CRUD_API(viewsets.ModelViewSet):
     serializer_class = labelling_function_serializer
     http_method_names = ['get', 'post', 'head', 'patch', 'delete']
 
-
 ############################################ # create spacy docs ############################################
 # Apply Spacy model to generate correspondant docs
 class spacy_generator_API(mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    serializer_class = weak_annotation_serializer
-    queryset = weak_annotation_log.objects.all()
+    serializer_class = datadoc_serializer
+    queryset = datadoc.objects.all()
 
     def perform_create(self, serializer):
         nlp = spacy.load('en_core_web_sm')
         data = serializer.validated_data
         project = data['project']
         tasks = Task.objects.all().filter(project= project)
-        try:
-            uid = weak_annotation_log.objects.latest('id').id
-        except:
-            uid = 0
+
+        uid = get_latest_idx(datadoc)
+
         objs = []
         for task in tasks:
             doc = nlp(task.data['text'])
             objs.append(
-                weak_annotation_log(
-                    id = uid + 1,
-                    spacy_doc = doc.to_json(),
-                    task = task,
-                    project = project,
-                    text = doc.text
-                )
+                datadoc(id = uid + 1, project = project, task = task, text = doc.text, spacy_doc = doc.to_json())
             )
             uid += 1
-        weak_annotation_log.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
+        datadoc.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
         return Response({'status': 'OK'})
 
 
-########################### # update spacy docs to include results from labelling function ##################################
-
-# currently supports Gazetteers only
-class labelling_function_logsAPI(viewsets.GenericViewSet, mixins.CreateModelMixin):
-
+############################## apply LF and save results ####################################################
+class labelling_function_applierAPI(viewsets.GenericViewSet, mixins.CreateModelMixin):
+    
     serializer_class = labelling_function_results_serializer
-    queryset = weak_annotation_log.objects.all()
-
+    queryset = datadoc.objects.all()
+    
     def perform_create(self, serializer):
         nlp = spacy.load('en_core_web_sm')
         function = serializer.validated_data['function']
         function_name = function.name
         label = function.label
         project = function.project
-        keywords = function.content.split(',')
-        keywords = [[element] for element in keywords]
-        tries = {label: Trie(keywords)}
+        content = function.content
 
         tasks = Task.objects.all().filter(project_id= project)
+        # define LF from regex expression
+        if function.type == "regex_matches":
+            annotator = RegexAnnotator(function_name, content, label)
+
+        # define LF from keywords matching list
+        elif function.type == "keywords_searcher":
+            keywords = get_keywords_from_content(content)
+            trie = Trie()
+            for item in keywords: 
+                trie.add(item)
+
+            tries = {label: trie}
+            annotator = GazetteerAnnotator(function_name, tries)
+
+        # define LF from Python Script
+        elif function.type == "python_code":
+            script = content
+            exec(script)
+            _locals = locals()
+            LF = _locals.get(function_name)
+            annotator = FunctionAnnotator(function_name, LF)
+
+        # Apply LF on Project Tasks
         for task in tasks:
-            doc = weak_annotation_log.objects.get(task_id=task).spacy_doc
+            doc = datadoc.objects.get(task_id=task).spacy_doc
             doc = Doc(nlp.vocab).from_json(doc)
 
-            skweak_gazetteer_function = GazetteerAnnotator(function_name, tries, case_sensitive=False)
-            doc = skweak_gazetteer_function(doc)
+            doc = annotator(doc)
             doc_json = doc.to_json()
-            weak_annotation_log.objects.filter(task_id=task).update(spacy_doc=doc_json)
-        return super().perform_create(serializer)
+            datadoc.objects.filter(task_id=task).update(spacy_doc=doc_json)
+
 
 ########################### # apply labelling function and save results in results ##################################
 class lf_results_API(viewsets.GenericViewSet, mixins.CreateModelMixin):
@@ -96,38 +112,27 @@ class lf_results_API(viewsets.GenericViewSet, mixins.CreateModelMixin):
         project = function.project
         
         tasks = Task.objects.all().filter(project_id= project)
-        try:
-            uid = result.objects.latest('id').id
-        except:
-            uid = 0
+        uid = get_latest_idx(result)
+
         objs = [] 
         for task in tasks:
-            doc = weak_annotation_log.objects.get(task_id=task).spacy_doc
+            doc = datadoc.objects.get(task_id=task).spacy_doc
             doc = Doc(nlp.vocab).from_json(doc)
-            ents = doc.spans.get(function_name)
-            res = []
-            for ent in ents:
-                item = {"from_name": "label", "to_name": "text", "type": "labels", "value": {}}
-                item['value'] = {"start": ent.start_char,
-                    "end": ent.end_char,
-                    "text": ent.text,
-                    "labels": [ent.label_]
-                    }
-                res.append(item)
-
-            objs.append(
-                result(
-                    id = uid + 1,
-                    function = function,
-                    project = project,
-                    model_version = function.name,
-                    result = res,
-                    task = task,
+            res = get_lf_results(doc, function_name)
+            if res:
+                objs.append(
+                    result(
+                        id = uid + 1,
+                        function = function,
+                        project = project,
+                        model_version = function.name,
+                        label = label,
+                        result = res,
+                        task = task,
+                    )
                 )
-            )
-            uid += 1
+                uid += 1
         result.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
-        # return super().perform_create(serializer)
 
 
 ##################### # defining an aggregation model      ##################################
@@ -135,81 +140,67 @@ class aggregationModelAPI(mixins.CreateModelMixin, viewsets.GenericViewSet, mixi
     serializer_class = aggregation_model_serializer
     queryset = aggregation_model.objects.all()
     def perform_create(self, serializer):
+        project = serializer.validated_data['project']
+        labels = project.control_weights["label"]["labels"]
+        serializer.validated_data['labels'] = labels
+        serializer.is_valid()
+        # serializer.save()
         return super().perform_create(serializer)
 
 
-##################### # update spacy docs to include aggregation results            ##################################
-##################### # apply aggregate model and save results in aggregate_results ##################################
-
+##################### # apply aggregate model  ##################################
 class aggregate_results_API(mixins.CreateModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    
     serializer_class = aggregate_results_serializer
     queryset = aggregate_result.objects.all()
+
     def perform_create(self, serializer):
         nlp = spacy.load('en_core_web_sm')
         # collect parameters
-        model_type = serializer.validated_data['model_type']
-        model_name = serializer.validated_data['model_name']
+        model = serializer.validated_data['model_version']
+        model_name = model.model_name
+        model_type = model.model_type
+
+        # get_initial_weights
+        weights = model.get_initial_weights()
+
         project = serializer.validated_data['project']
-                
-        tasks = Task.objects.all().filter(project_id= project)
-        
-        # Collect all docs into one list
-        docs = []
-        for task in tasks:
-            doc = weak_annotation_log.objects.get(task_id=task).spacy_doc
-            doc = Doc(nlp.vocab).from_json(doc)
-            docs.append(doc)
-        
+
+        labels = model.get_labels()
+        docs = datadoc.get_project_docs(project)
+        docs[0].spans.data
         # select aggregation model type and apply model
         if model_type == 'HMM':
-            agg_model = skweak.aggregation.HMM(model_name,['PER', 'LOC', 'ORG', 'MISC'])
+            agg_model = aggregation.HMM(model_name,labels, initial_weights=weights)
         elif model_type == 'Majority Voting':
-            agg_model = skweak.aggregation.MajorityVoter(model_name,['PER', 'LOC', 'ORG', 'MISC'])
-        
+            agg_model = aggregation.MajorityVoter(model_name,labels, initial_weights=weights)
+
         docs = agg_model.fit_and_aggregate(docs)
 
         # check for valid ID insertion
-        try:
-            uuid = aggregate_result.objects.latest('id').id
-        except:
-            uuid = 0
-
+        uid = get_latest_idx(aggregate_result)
         # iterate over docs, and extract annotations corresponding to aggreation model
         objs = []
         for doc in docs:
-            ents = doc.spans.get(model_name)
-            res = []
-            taskid = weak_annotation_log.objects.get(text=doc.text).task_id
-            for ent in ents:
-                item = {"from_name": "label", "to_name": "text", "type": "labels", "value": {}}
-                item['value'] = {"start": ent.start_char,
-                    "end": ent.end_char,
-                    "text": ent.text,
-                    "labels": [ent.label_]
-                    }
-                res.append(item)
-            
-            # update spacy docs to include annotations of agg model
+            taskid = datadoc.objects.get(text=doc.text).task_id
             doc_json = doc.to_json()
-            weak_annotation_log.objects.filter(task_id=taskid).update(spacy_doc=doc_json)
-
+            datadoc.objects.filter(task_id=taskid).update(spacy_doc=doc_json)
+            res = get_lf_results(doc, model_name)
+            
             # save annotations of agg model to results table
             objs.append(
                 aggregate_result(
-                    id = uuid + 1,
-                    model_name = model_name,
-                    model_type = model_type,
-                    annotation = res,
+                    id = uid + 1,
+                    model_version = model,
+                    project = project,
                     task = Task.objects.get(id=taskid),
-                    project = task.project_id,
+                    result = res,
                 )
             )
-            uuid += 1
+            uid += 1
         
-        # bulk save annotations of agg model
         aggregate_result.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
 
-        # return super().perform_create(serializer)
 
 ########################### # calculate metrics over spacy docs (coverage, conflicts, overlaps) ##################################
 class metrics_calculatorAPI(mixins.CreateModelMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin):
@@ -222,17 +213,10 @@ class metrics_calculatorAPI(mixins.CreateModelMixin, viewsets.GenericViewSet, mi
         tasks = Task.objects.all().filter(project_id= project)
 
         # checking correct start id
-        try:
-            uuid = metric.objects.latest('id').id
-        except:
-            uuid = 0
+        uid = get_latest_idx(metric)
 
         # getting docs
-        docs = []
-        for task in tasks:
-            doc = weak_annotation_log.objects.get(task_id=task).spacy_doc
-            doc = Doc(nlp.vocab).from_json(doc)
-            docs.append(doc)
+        docs = datadoc.get_project_docs(project)
         
         # applying analyser
         analyzer = LFAnalysis(docs,['PER','LOC', 'ORG', 'MISC'])
@@ -258,25 +242,27 @@ class metrics_calculatorAPI(mixins.CreateModelMixin, viewsets.GenericViewSet, mi
                 if fct in lf_names:
                     objs.append(
                         metric(
-                            id = uuid + 1,
+                            id = uid + 1,
                             project = project, function = labelling_function.objects.get(name=fct), label = label,
                             coverage = coverages[fct][label],
                             conflicts = conflicts[fct][label],
                             overlaps = overlaps[fct][label],
                         )
                     )
-                    uuid += 1                    
+                    uid += 1                    
                 elif fct in model_names:
                     objs.append(
                         metric( 
-                            id = uuid + 1,
+                            id = uid + 1,
                             project = project, model = aggregation_model.objects.get(model_name=fct), label = label,
                             coverage = coverages[fct][label],
                             conflicts = conflicts[fct][label],
                             overlaps = overlaps[fct][label],
                         )
                     )
-                    uuid += 1
+                    uid += 1
         metric.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
 
         return super().perform_create(serializer)
+
+##

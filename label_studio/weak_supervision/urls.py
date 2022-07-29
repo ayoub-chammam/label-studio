@@ -10,7 +10,7 @@ router = DefaultRouter()
 # CRUD
 router.register(r'create_LF', api.labelling_functions_CRUD_API, basename='CRUD_LF')
 
-router.register(r'apply_LF', api.labelling_function_logsAPI, basename='function_apply')
+router.register(r'run', api.labelling_function_applierAPI, basename='run-function')
 
 router.register(r'create_docs', api.spacy_generator_API, basename='spacy_apply')
 

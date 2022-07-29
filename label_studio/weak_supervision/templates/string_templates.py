@@ -1,6 +1,4 @@
 import re
-
-
 def single_regex(text: str, pattern: str, label: str):
     """
     Extract first match of a regular expression pattern within a text
@@ -10,7 +8,7 @@ def single_regex(text: str, pattern: str, label: str):
     if match:
         start = match.start()
         end = match.end()
-        yield start, end, text[start:end], label
+        yield start, end, label
 
 
 def regex_matches(text: str, pattern: str, label: str):
@@ -22,7 +20,7 @@ def regex_matches(text: str, pattern: str, label: str):
     for match in matches:
         start = match.start()
         end = match.end()
-        yield start, end, text[start:end], label
+        yield start, end, label
 
 
 def string_match(text: str, substring: str, label: str):
@@ -32,7 +30,7 @@ def string_match(text: str, substring: str, label: str):
     start = text.find(substring)
     if start != -1:
         end = start + len(substring)
-        yield start, end, text[start:end], label
+        yield start, end, label
 
 
 def string_matches(text: str, substring:str, label:str):
@@ -43,7 +41,7 @@ def string_matches(text: str, substring:str, label:str):
     for match in matches:
         start = match.start()
         end = match.end()
-        yield start, end, text[start: end], label
+        yield start, end, label
 
 def keywords_searcher(text: str, keywords: str, label: str):
     """
@@ -55,4 +53,4 @@ def keywords_searcher(text: str, keywords: str, label: str):
         for match in matches:
             start = match.start()
             end = match.end()
-            yield start, end, keyword, label
+            yield start, end, label

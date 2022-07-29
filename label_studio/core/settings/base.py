@@ -189,7 +189,7 @@ INSTALLED_APPS = [
     'ml',
     'webhooks',
     'labels_manager',
-    'weak_supervision'
+    'weak_supervision',
 ]
 
 MIDDLEWARE = [
@@ -421,7 +421,7 @@ DM_ROOT = os.path.join(BASE_DIR, '../frontend/dist/dm')
 REACT_APP_ROOT = os.path.join(BASE_DIR, '../frontend/dist/react-app')
 
 # per project settings
-BATCH_SIZE = 1000
+BATCH_SIZE = 100000
 PROJECT_TITLE_MIN_LEN = 3
 PROJECT_TITLE_MAX_LEN = 50
 LOGIN_REDIRECT_URL = '/'
