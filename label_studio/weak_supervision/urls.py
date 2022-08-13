@@ -8,21 +8,17 @@ router = DefaultRouter()
 
 
 # CRUD
-router.register(r'create_LF', api.labelling_functions_CRUD_API, basename='CRUD_LF')
+router.register(r'docs', api.spacy_generator_API, basename='spacy-apply')
 
-router.register(r'run', api.labelling_function_applierAPI, basename='run-function')
+router.register(r'labellingfunctions', api.LabellingFunctionsAPI, basename='LF-CRUD')
 
-router.register(r'create_docs', api.spacy_generator_API, basename='spacy_apply')
+router.register(r'apply_LF', api.LFAnnotationAPI, basename='run-function')
 
-router.register(r'store_LF_res', api.lf_results_API, basename='lf_results')
+router.register(r'model', api.aggregationModelAPI, basename='Model-CRUD') # TODO:UpdateDelete
 
-router.register(r'create_agg_model', api.aggregationModelAPI, basename='CRUD_agg') # TODO:UD
+router.register(r'apply_model', api.aggregate_results_API, basename='agg-apply')
 
-router.register(r'apply_agg_model', api.aggregate_results_API, basename='agg_apply')
-
-router.register(r'calculate_metrics', api.metrics_calculatorAPI, basename='generate-metrics')
-
-
+router.register(r'calculate_metrics', api.metricsAPI, basename='generate-metrics')
 
 _api_LFs_urlpatterns = router.urls
 
@@ -33,10 +29,4 @@ urlpatterns = [
 ]
 
 
-
-# _api_urlpatterns = [
-#     # CRUD
-#     path('labelling_functions/', api.LabellingfunctionAPI.as_view(), name='LF-list'),
-#     path('labelling_functions/<int:pk>/', api.LabellingFunction_RUD_API.as_view(), name='LF-detail'),
-
-# ]
+# router.register(r'store_LF_res', api.lf_results_API, basename='lf_results') # TobeRemoved

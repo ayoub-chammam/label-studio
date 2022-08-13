@@ -29,3 +29,35 @@ def get_lf_results(doc,lf_name):
             }
         res.append(item)
     return res
+
+def gold_preds_to_spans(doc, gold_preds):
+    gold_spans = []
+    for ent in gold_preds:
+        offset = (ent["value"]["start"], ent["value"]["end"], ent["value"]["labels"][0])
+        gold_spans.append(offset)
+    
+    spans = [doc.char_span(x[0], x[1], label=x[2]) for x in gold_spans]
+    doc.spans["gold"] = spans
+    return doc
+
+def scores_to_json(scores):
+    for annotator, label_dict in scores.items():
+        for label, metrics_dict in label_dict.items():
+            res = {
+                "annotator": annotator,
+                "label": label,
+                "precision": metrics_dict["precision"],
+                "recall": metrics_dict["recall"],
+                "f1": metrics_dict["f1"]
+            }
+            yield res
+
+def remove_gold(docs, weights):
+    spans = list(docs[0].spans.data.keys())
+    if 'gold' in spans:
+        weights.update({'gold':0})
+    return weights
+
+def check_gold(docs):
+    spans = list(docs[0].spans.data.keys())
+    return 'gold' in spans

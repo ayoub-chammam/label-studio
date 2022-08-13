@@ -32,7 +32,7 @@ class aggregate_results_serializer(serializers.ModelSerializer):
         model = aggregate_result
         fields = ['model_version','project'] #,'result']
 
-class metrics_applier_serializer(serializers.ModelSerializer):
+class metrics_serializer(serializers.ModelSerializer):
 
     class Meta:
         model = metric
