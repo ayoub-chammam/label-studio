@@ -18,7 +18,7 @@ router.register(r'model', api.aggregationModelAPI, basename='Model-CRUD') # TODO
 
 router.register(r'apply_model', api.aggregate_results_API, basename='agg-apply')
 
-router.register(r'calculate_metrics', api.metricsAPI, basename='generate-metrics')
+router.register(r'calculate_lf_metrics', api.LFmetricsAPI, basename='generate-metrics')
 
 _api_LFs_urlpatterns = router.urls
 

@@ -10,33 +10,29 @@ from spacy.tokens import Doc
 class labelling_function(models.Model):
     """
     Labelling Function class used for automatic data labeling in weak supervision
-    ------------------------------------------------------------------------------
-
-     THINGS TO CONSIDER WHILE WRTINING A PYTHON SCRIPT FUNCTION:
-    function must yield start, end, label and takes as input spacy doc file
-    \n creates new line and 
-    \t replaces the tab character
-    Therefore writing the above function can be written in the following format:
-
-    "def factorial(num):\n\tfact=1\n\tfor i in range(1,num+1):\n\t\tfact = fact*i\n\treturn fact\nprint(factorial(3))"
-
     """
 
     templates = (
-        ('regex_matches', _('all matches of a regex pattern')),
-        ('keywords_searcher', _('all matches of a list of keywords')),
-        ('python_code', _('a script of a python function')),
+        (1, _('all matches of one or a list of keywords')),
+        # Example: Google, Apple, Amazon,  Heartex Inc, etc.
+        (2, _('all matches of a regex pattern')),
+        # Example: (?:Mr\.|Mrs\.) [a-zA-Z]+
+        (3, _('a script of a python function')),
+        # Example: def factorial(num):\n\tfact=1\n\tfor i in range(1,num+1):\n\t\tfact = fact*i\n\treturn fact\nprint(factorial(3))
     )
 
     name = models.CharField(
         max_length=60, help_text='name of the Labelling Function', unique=True)
     label = models.CharField(
         max_length=60, help_text='Label Attributed for the Labelling Function')
-    type = models.CharField(choices=templates, max_length=60, default='')
-    content = models.TextField(default='', null=True, help_text='Searched Word or RegEx expression to match - '
-                               'in Text corresponding to selected label')
-    project = models.ForeignKey(Project, related_name='project', on_delete=models.CASCADE, null=True,
-                                help_text='Project ID where the Labelling Function is created')
+    type = models.IntegerField(
+        choices=templates, default=None)
+    content = models.TextField(
+        default='', null=True, help_text='Searched Word or Regular expression to match - '
+        'in Text corresponding to selected label or LF with Python code')
+    project = models.ForeignKey(
+        Project, related_name='project', on_delete=models.CASCADE, null=True,
+        help_text='Project ID where the Labelling Function is created')
 
     created_at = models.DateTimeField(
         _('created at'), auto_now_add=True, help_text='Time a labelling function was created')
@@ -62,7 +58,7 @@ class labelling_function(models.Model):
     def has_permission(self, user):
         return self.project.has_permission(user)
 
-    def get_all_lf_names():
+    def get_lf_names():
         names = list(labelling_function.objects.all(
         ).values_list('name', flat=True))
         return names
@@ -74,8 +70,8 @@ class datadoc(models.Model):
     #task = models.ForeignKey(Task, on_delete=models.CASCADE, unique=True, help_text='Task ID')
     task = models.OneToOneField(
         Task, on_delete=models.CASCADE, help_text='Task ID')
-    text = models.TextField(default=None, null=True,
-                            help_text='Corresponding text')
+    text = models.TextField(
+        default=None, null=True, help_text='Corresponding text')
     spacy_doc = models.JSONField(
         'doc', default=None, help_text='SpaCy doc file relative to each Task in JSON Format')
 
@@ -106,15 +102,17 @@ class result(models.Model):
         Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
 
     result = models.TextField(null=True)
-    label = models.CharField(max_length=60, null=True,
-                             help_text='label of the entity')
+    label = models.CharField(
+        max_length=60, null=True, help_text='label of the entity')
 
     created_at = models.DateTimeField(
-        _('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
+        _('created at'), auto_now_add=True, help_text='Time a labelling function annotation is created')
     updated_at = models.DateTimeField(
-        _('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
+        _('updated at'), auto_now=True, help_text='Last time a labelling function annotation was updated')
 
     model_version = models.TextField('labeling_function', null=True)
+    final = models.BooleanField('final model', null=True)
+
 
     def has_permission(self, user):
         return self.project.has_permission(user)
@@ -126,35 +124,35 @@ class aggregation_model(models.Model):
         ('Majority Voting', _('Majroity Voting')),
     )
     model_name = models.CharField(
-        max_length=60, help_text='name of the Aggregation model')
+        max_length=60, help_text='name of the aggregation model')
     model_type = models.CharField(choices=templates, max_length=60)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
     labels = models.JSONField('list of labels', default=None)
+    
     created_at = models.DateTimeField(
-        _('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
+        _('created at'), auto_now_add=True, help_text='Time an aggreagation model was created')
     updated_at = models.DateTimeField(
-        _('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
+        _('updated at'), auto_now=True, help_text='Last time an aggreagation model was updated')
 
     disabled_functions = models.ManyToManyField(
-        'labelling_function',
-        blank=True,
+        'labelling_function', blank=True,
         related_name='LFs',
         help_text='selected labelling functions to ignore for the agg. model',
     )
 
     precision = models.FloatField(
-        _('precision'), default=None, help_text='LF Precision score', null=True)
+        _('precision'), default=None, help_text='agg model Precision score', null=True)
     recall = models.FloatField(
-        _('recall'), default=None, help_text='LF Recall score', null=True)
+        _('recall'), default=None, help_text='agg model Recall score', null=True)
     f1_score = models.FloatField(
-        _('f1_score'), default=None, help_text='LF F_score score', null=True)
+        _('f1_score'), default=None, help_text='agg model F_score score', null=True)
     coverage = models.FloatField(
-        _('coverage'), default=None, help_text='LF Coverage score', null=True)
-    overlap = models.FloatField(
-        _('overlap'), default=None, help_text='LF Overlap score', null=True)
-    conflict = models.FloatField(
-        _('conflict'), default=None, help_text='LF Conflict score', null=True)
+        _('coverage'), default=None, help_text='agg model Coverage score', null=True)
+    overlaps = models.FloatField(
+        _('overlap'), default=None, help_text='agg model Overlap score', null=True)
+    conflicts = models.FloatField(
+        _('conflict'), default=None, help_text='agg model Conflict score', null=True)
 
     def has_permission(self, user):
         return self.project.has_permission(user)
@@ -168,6 +166,10 @@ class aggregation_model(models.Model):
         weights = {fct: 0 for fct in names}
         return weights
 
+    def get_model_names():
+        names = list(labelling_function.objects.all(
+        ).values_list('model_name', flat=True))
+        return names
 
 class aggregate_result(models.Model):
 
@@ -180,24 +182,24 @@ class aggregate_result(models.Model):
     result = models.TextField(null=True, help_text='annotation results')
 
     created_at = models.DateTimeField(
-        _('created at'), auto_now_add=True, help_text='Time a labelling function is applied')
+        _('created at'), auto_now_add=True, help_text='Time an aggreagtion model annotation was created')
     updated_at = models.DateTimeField(
-        _('updated at'), auto_now=True, help_text='Last time a function annotation was updated')
+        _('updated at'), auto_now=True, help_text='Last time an aggregation model annotation was updated')
 
     def has_permission(self, user):
         return self.project.has_permission(user)
 
 
-class metric(models.Model):
+class LFmetric(models.Model):
 
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
-    # function = models.ForeignKey(labelling_function, on_delete=models.CASCADE, help_text='labelling function ID', null=True)
-    # model = models.ForeignKey(aggregation_model, on_delete=models.CASCADE, help_text='model ID', null=True)
 
-    function_name = models.TextField(null=True)
+    function = models.ForeignKey(
+        labelling_function, on_delete=models.CASCADE, help_text='labelling function ID', null=True)
+
     label = models.CharField(max_length=60, null=True,
-                             help_text='label of the entity')
+                             help_text='label')
 
     coverage = models.FloatField(blank=True, null=True)
     conflicts = models.FloatField(blank=True, null=True)
@@ -208,6 +210,11 @@ class metric(models.Model):
     f1_score = models.FloatField(blank=True, null=True)
 
     results = models.IntegerField(blank=True, null=True)
+
+    created_at = models.DateTimeField(
+        _('created at'), auto_now_add=True, help_text='Time a metric was calculated')
+    updated_at = models.DateTimeField(
+        _('updated at'), auto_now=True, help_text='Last time a metric was updated')
 
     def has_permission(self, user):
         return self.project.has_permission(user)

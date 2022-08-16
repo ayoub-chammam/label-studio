@@ -317,6 +317,7 @@ class Project(ProjectMixin, models.Model):
     def need_annotators(self):
         return self.maximum_annotations - self.num_annotators
 
+
     @classmethod
     def find_by_invite_url(cls, url):
         token = url.strip('/').split('/')[-1]
@@ -324,6 +325,9 @@ class Project(ProjectMixin, models.Model):
             return Project.objects.get(token=token)
         else:
             raise KeyError(f'Can\'t find Project by invite URL: {url}')
+
+    def get_project_labels(self):
+        return self.parsed_label_config["label"]["labels"]
 
     def reset_token(self):
         self.token = create_hash()
