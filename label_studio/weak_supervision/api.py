@@ -195,7 +195,7 @@ class aggregate_results_API(mixins.CreateModelMixin, viewsets.GenericViewSet, mi
 
 
 class LFmetricsAPI(mixins.CreateModelMixin, viewsets.GenericViewSet):
-    serializer_class = metrics_serializer
+    serializer_class = LFmetrics_serializer
     queryset = LFmetric.objects.all()
 
     def perform_create(self, serializer):
@@ -208,26 +208,22 @@ class LFmetricsAPI(mixins.CreateModelMixin, viewsets.GenericViewSet):
         LF_names = labelling_function.get_lf_names()
 
         labelling_function_scores = lf_scores(docs, labels, LF_names)
-        print(labelling_function_scores)
 
         uid = get_latest_idx(LFmetric)
         objs = []
-        for fct in LF_names:
-            for score in labelling_function_scores:
-                # print(score)
-                # if check_gold(docs):
-
-                #     objs.append(
-                #         LFmetric(
-                #         id = uid + 1, project=project,
-                #         function = labelling_function.objects.get(name=score['annotator']),
-                #         label=score['label'], coverage=score['coverage'], conflicts=score['conflicts'],
-                #         overlaps=score['overlaps'], precision=score['precision'], recall=score['recall'], 
-                #         f1_score=score['f1'],
-                #         )
-                #     )
-                #     uid += 1 
-                # else:                   
+        for score in labelling_function_scores:
+            if 'precision' in score.keys():
+                objs.append(
+                    LFmetric(
+                    id = uid + 1, project=project,
+                    function = labelling_function.objects.get(name=score['annotator']),
+                    label=score['label'], coverage=score['coverage'], conflicts=score['conflicts'],
+                    overlaps=score['overlaps'], precision=score['precision'], recall=score['recall'], 
+                    f1_score=score['f1'],
+                    )
+                )
+                uid += 1 
+            else:                   
                 objs.append(
                     LFmetric(
                     id = uid + 1, project=project,
@@ -239,30 +235,39 @@ class LFmetricsAPI(mixins.CreateModelMixin, viewsets.GenericViewSet):
                 uid += 1 
         LFmetric.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)
 
-        return super().perform_create(serializer)
-
 ########################### # calculate metrics over spacy docs (coverage, conflicts, overlaps) ##################################
-class ModelmetricsAPI(mixins.UpdateModelMixin, viewsets.GenericViewSet):
-    serializer_class = aggregation_model_serializer
-    queryset = aggregation_model.objects.all()
-    def perform_update(self, serializer):
-
+class ModelmetricsAPI(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    serializer_class = ModelMetrics_serializer
+    queryset = Modelmetric.objects.all()
+    def perform_create(self, serializer):
         project = serializer.validated_data['project']
         docs = datadoc.get_project_docs(project)
         labels = project.get_project_labels()
-        model_name = serializer.validated_data['model_name']
-        agg_model_scores = model_scores(docs,labels,model_name)
+        model = serializer.validated_data['model'].model_name
+        agg_model_scores = model_scores(docs,labels,model)
 
-        serializer.validated_data['labels'] = labels
-        print(agg_model_scores)
-
-        serializer.is_valid()
-        # serializer.save()
-        return super().perform_update(serializer)
-
-        
-##########################################################
-# One API post request 
-# calculates metrics from ground truth
-# check for labeling function   if function name in lf_names then add it
-# bulk update labelling functions with function name = function name
+        uid = get_latest_idx(LFmetric)
+        objs = []
+        for score in agg_model_scores:
+            if 'precision' in score.keys():
+                objs.append(
+                    Modelmetric(
+                    id = uid + 1, project=project,
+                    model = aggregation_model.objects.get(model_name=score['annotator']),
+                    label=score['label'], coverage=score['coverage'], conflicts=score['conflicts'],
+                    overlaps=score['overlaps'], precision=score['precision'], recall=score['recall'], 
+                    f1_score=score['f1'],
+                    )
+                )
+                uid += 1 
+            else:                   
+                objs.append(
+                    Modelmetric(
+                    id = uid + 1, project=project,
+                    model = aggregation_model.objects.get(model_name=score['annotator']),
+                    label=score['label'], coverage=score['coverage'], conflicts=score['conflicts'],
+                    overlaps=score['overlaps'],
+                    )
+                )
+                uid += 1 
+        return Modelmetric.objects.bulk_create(objs, batch_size=settings.BATCH_SIZE)

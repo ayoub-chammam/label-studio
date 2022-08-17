@@ -142,17 +142,17 @@ class aggregation_model(models.Model):
     )
 
     precision = models.FloatField(
-        _('precision'), default=None, help_text='agg model Precision score', null=True)
+        _('precision'), help_text='agg model Precision score', null=True, default=0.0)
     recall = models.FloatField(
-        _('recall'), default=None, help_text='agg model Recall score', null=True)
+        _('recall'), help_text='agg model Recall score', null=True, default=0.0)
     f1_score = models.FloatField(
-        _('f1_score'), default=None, help_text='agg model F_score score', null=True)
+        _('f1_score'), help_text='agg model F_score score', null=True, default=0.0)
     coverage = models.FloatField(
-        _('coverage'), default=None, help_text='agg model Coverage score', null=True)
+        _('coverage'), help_text='agg model Coverage score', null=True, default=0.0)
     overlaps = models.FloatField(
-        _('overlap'), default=None, help_text='agg model Overlap score', null=True)
+        _('overlap'), help_text='agg model Overlap score', null=True, default=0.0)
     conflicts = models.FloatField(
-        _('conflict'), default=None, help_text='agg model Conflict score', null=True)
+        _('conflict'), help_text='agg model Conflict score', null=True, default=0.0)
 
     def has_permission(self, user):
         return self.project.has_permission(user)
@@ -201,15 +201,15 @@ class LFmetric(models.Model):
     label = models.CharField(max_length=60, null=True,
                              help_text='label')
 
-    coverage = models.FloatField(blank=True, null=True)
-    conflicts = models.FloatField(blank=True, null=True)
-    overlaps = models.FloatField(blank=True, null=True)
+    coverage = models.FloatField(blank=True, null=True, default=0.0)
+    conflicts = models.FloatField(blank=True, null=True, default=0.0)
+    overlaps = models.FloatField(blank=True, null=True, default=0.0)
 
-    precision = models.FloatField(blank=True, null=True)
-    recall = models.FloatField(blank=True, null=True)
-    f1_score = models.FloatField(blank=True, null=True)
+    precision = models.FloatField(blank=True, null=True, default=0.0)
+    recall = models.FloatField(blank=True, null=True, default=0.0)
+    f1_score = models.FloatField(blank=True, null=True, default=0.0)
 
-    results = models.IntegerField(blank=True, null=True)
+    results = models.IntegerField(blank=True, null=True, default=0.0)
 
     created_at = models.DateTimeField(
         _('created at'), auto_now_add=True, help_text='Time a metric was calculated')
@@ -218,3 +218,42 @@ class LFmetric(models.Model):
 
     def has_permission(self, user):
         return self.project.has_permission(user)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["function", "label"], name='function-label')
+    ]
+
+class Modelmetric(models.Model):
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+
+    model = models.ForeignKey(
+        aggregation_model, on_delete=models.CASCADE, help_text='agg model ID', null=True)
+
+    label = models.CharField(max_length=60, null=True,
+                             help_text='label')
+
+    coverage = models.FloatField(blank=True, null=True, default=0.0)
+    conflicts = models.FloatField(blank=True, null=True, default=0.0)
+    overlaps = models.FloatField(blank=True, null=True, default=0.0)
+
+    precision = models.FloatField(blank=True, null=True, default=0.0)
+    recall = models.FloatField(blank=True, null=True, default=0.0)
+    f1_score = models.FloatField(blank=True, null=True, default=0.0)
+
+    results = models.IntegerField(blank=True, null=True, default=0.0)
+
+    created_at = models.DateTimeField(
+        _('created at'), auto_now_add=True, help_text='Time a metric was calculated')
+    updated_at = models.DateTimeField(
+        _('updated at'), auto_now=True, help_text='Last time a metric was updated')
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["model", "label"], name='model-label')
+    ]

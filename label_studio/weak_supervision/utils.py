@@ -24,12 +24,7 @@ def get_keywords_from_content(text, label):
         tries.add(item)
     tries = {label: tries}
     return tries
-{'LOC': [
-    ['Brooklyn'], ['', 'Chicago'], 
-    ['', 'New', 'York'], ['', 'Miami'], ['', '', 'Georgia'], 
-    ['', '', 'San', 'Francisco'], 
-    ['', 'Los', 'Angeles'], ['', 'Jerusalem']]
-    }
+
 
 def get_lf_results(doc, lf_name):
     ents = doc.spans.get(lf_name)
@@ -57,10 +52,11 @@ def gold_preds_to_spans(doc, gold_preds):
     doc.spans["gold"] = spans
     return doc
 
+
 def get_gt_scores(docs, labels, gold='gold'):
     lf_analysis = LFAnalysis(docs, labels)
     gt_scores = lf_analysis.lf_empirical_scores(docs, gold_span_name=gold, gold_labels=labels)
-    
+    gold_scores = []
     for annotator, label_dict in gt_scores.items():
         for label, metrics_dict in label_dict.items():
             res = {
@@ -70,8 +66,8 @@ def get_gt_scores(docs, labels, gold='gold'):
                 "recall": metrics_dict["recall"],
                 "f1": metrics_dict["f1"]
             }
-            print(res)
-            yield res
+            gold_scores.append(res)
+    return gold_scores
 
 
 def get_weak_scores(docs, labels):
@@ -79,9 +75,9 @@ def get_weak_scores(docs, labels):
     conflicts = lf_analysis.lf_conflicts()
     coverages = lf_analysis.lf_conflicts()
     overlaps = lf_analysis.lf_overlaps()
-
+    scores = []
     for annotator, label_dict in overlaps.items():
-        for label, _ in label_dict.items():
+        for label, label_score in label_dict.items():
             res = {
                 "annotator": annotator,
                 "label": label,
@@ -89,44 +85,42 @@ def get_weak_scores(docs, labels):
                 "conflicts": conflicts[annotator][label],
                 "coverage": coverages[annotator][label],
             }
-            yield res
+            scores.append(res)
+    return scores
 
 
 def get_scores(docs, labels):
     scores = get_weak_scores(docs, labels)
-    if check_gold(docs):
+    comb_scores = []
+    if check_gold(docs)==True:
         gold_scores = get_gt_scores(docs, labels)
+
         for score in scores:
             for gold_score in gold_scores:
                 if score['annotator']==gold_score['annotator'] and score['label']==gold_score['label']:
                     score['precision'] = gold_score['precision']
                     score['recall'] = gold_score['recall']
                     score['f1'] = gold_score['f1']
-                    print(score, '-')
-            print(score, '1')
-            yield score    
-    # return scores
+            comb_scores.append(score)
+    return comb_scores  
     
+
 def lf_scores(docs, labels, lf_names):
     scores = get_scores(docs, labels)
-    print(scores)
-    # updated_scores = []
+    fcts_scores = []
     for score in scores:
         if score['annotator'] in lf_names:
-            # updated_scores.append(score)
-            print(score, '2')
-            yield score
-    # return updated_scores
+            fcts_scores.append(score)
+    return fcts_scores
 
 def model_scores(docs, labels, model_name):
     scores = get_scores(docs, labels)
-    # model_scores = []
+    agg_scores = []
     for score in scores:
         if score['annotator'] == model_name:
-            # model_scores.append(score)
-            print(score, '3')
-            yield score
-    # return model_scores
+            agg_scores.append(score)
+    return agg_scores
+
 
 def remove_gold(docs, weights):
     spans = list(docs[0].spans.data.keys())
@@ -137,4 +131,7 @@ def remove_gold(docs, weights):
 
 def check_gold(docs):
     spans = list(docs[0].spans.data.keys())
-    return 'gold' in spans
+    if 'gold' in spans:
+        return True
+    else:
+        return False

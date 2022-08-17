@@ -1,4 +1,4 @@
-from .models import aggregate_result, aggregation_model, labelling_function, LFmetric, datadoc, result
+from .models import Modelmetric, aggregate_result, aggregation_model, labelling_function, LFmetric, datadoc, result
 from rest_framework import serializers
 
 class labelling_function_serializer(serializers.ModelSerializer):
@@ -30,10 +30,17 @@ class aggregate_results_serializer(serializers.ModelSerializer):
 
     class Meta:
         model = aggregate_result
-        fields = ['model_version','project'] #,'result']
+        fields = ['model_version','project']
 
-class metrics_serializer(serializers.ModelSerializer):
+class LFmetrics_serializer(serializers.ModelSerializer):
 
     class Meta:
         model = LFmetric
         fields = ['project']
+
+class ModelMetrics_serializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Modelmetric
+        fields = ['project','model']
+
