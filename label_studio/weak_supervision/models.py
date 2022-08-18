@@ -173,7 +173,7 @@ class aggregation_model(models.Model):
 
 class aggregate_result(models.Model):
 
-    model_version = models.ForeignKey(
+    model = models.ForeignKey(
         aggregation_model, on_delete=models.CASCADE, null=True)
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, null=True, help_text='Project ID')

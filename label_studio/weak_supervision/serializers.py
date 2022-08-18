@@ -1,46 +1,70 @@
 from .models import Modelmetric, aggregate_result, aggregation_model, labelling_function, LFmetric, datadoc, result
 from rest_framework import serializers
 
-class labelling_function_serializer(serializers.ModelSerializer):
 
+############################################################################
+####################### Labelling Function Serializers #####################
+############################################################################
+
+class LFSerializer(serializers.ModelSerializer):
     class Meta:
         model = labelling_function
         fields = ('__all__')
 
-class labelling_function_results_serializer(serializers.ModelSerializer):
-
+class LFApplySerializer(serializers.ModelSerializer):
     class Meta:
         model = result
         fields = ['id', 'function']
 
-
-class datadoc_serializer(serializers.ModelSerializer):
-
+class LFResultSerializer(serializers.ModelSerializer):
     class Meta:
-        model = datadoc
-        fields = ['project']
+        model = result
+        fields = ('__all__')
 
-class aggregation_model_serializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = aggregation_model
-        fields = ['model_name', 'model_type', 'project', 'disabled_functions']
-
-class aggregate_results_serializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = aggregate_result
-        fields = ['model_version','project']
-
-class LFmetrics_serializer(serializers.ModelSerializer):
-
+class LFMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = LFmetric
         fields = ['project']
 
-class ModelMetrics_serializer(serializers.ModelSerializer):
+class LFMetricResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LFmetric
+        fields = ('__all__')
 
+
+############################################################################
+class DataDocSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = datadoc
+        fields = ['project']
+############################################################################
+
+
+############################################################################
+####################### Aggregation Model Serializers ######################
+############################################################################
+
+class AggModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = aggregation_model
+        fields = ('__all__')
+
+class AggModelApplySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = aggregate_result
+        fields = ['model','project']
+
+class AggModelResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = aggregate_result
+        fields = ('__all__')
+
+class AggModelMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = Modelmetric
         fields = ['project','model']
 
+class AggModelMetricResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Modelmetric
+        fields = ('__all__')
