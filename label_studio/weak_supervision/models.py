@@ -1,4 +1,3 @@
-from email.policy import default
 from django.db import models
 from projects.models import Project
 from tasks.models import Task
@@ -6,18 +5,91 @@ from django.utils.translation import gettext_lazy as _
 import spacy
 from spacy.tokens import Doc
 
+class SpacyModel(models.Model):
+    name = models.CharField(
+        max_length=60, help_text='name of the ner model', unique=True)
+    path = models.CharField(
+        max_length=60, help_text='name of the ner model')
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+    labels = models.JSONField('list of labels', default=None)
+    
+    created_at = models.DateTimeField(
+        _('created at'), auto_now_add=True, help_text='Time an aggreagation model was created')
+    updated_at = models.DateTimeField(
+        _('updated at'), auto_now=True, help_text='Last time an aggreagation model was updated')
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+
+class SpacyModelResult(models.Model):
+    model = models.ForeignKey(
+        SpacyModel, on_delete=models.CASCADE, help_text='labelling function ID')
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+    task = models.ForeignKey(
+        Task, on_delete=models.CASCADE, null=True, help_text='Task ID')
+    result = models.TextField(null=True)
+    model_version = models.TextField('model_version', null=True)
+
+    created_at = models.DateTimeField(
+        _('created at'), auto_now_add=True, help_text='Time a model annotation is created')
+    updated_at = models.DateTimeField(
+        _('updated at'), auto_now=True, help_text='Last time a model annotation was updated')
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+
+class SpacyModelMetric(models.Model):
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, help_text='Project ID')
+
+    model = models.ForeignKey(
+        SpacyModel, on_delete=models.CASCADE, help_text='ner model ID', null=True)
+
+    label = models.CharField(max_length=60, null=True,
+                             help_text='label')
+
+    coverage = models.FloatField(blank=True, null=True, default=0.0)
+    conflicts = models.FloatField(blank=True, null=True, default=0.0)
+    overlaps = models.FloatField(blank=True, null=True, default=0.0)
+
+    precision = models.FloatField(blank=True, null=True, default=0.0)
+    recall = models.FloatField(blank=True, null=True, default=0.0)
+    f1_score = models.FloatField(blank=True, null=True, default=0.0)
+
+    results = models.IntegerField(blank=True, null=True, default=0.0)
+
+    created_at = models.DateTimeField(
+        _('created at'), auto_now_add=True, help_text='Time a metric was calculated')
+    updated_at = models.DateTimeField(
+        _('updated at'), auto_now=True, help_text='Last time a metric was updated')
+
+    def has_permission(self, user):
+        return self.project.has_permission(user)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["model", "label"], name='ner-model-label')
+    ]
 
 class labelling_function(models.Model):
     """
     Labelling Function class used for automatic data labeling in weak supervision
     """
-
+    file_path = models.FileField(null=True)
     templates = (
         (1, _('all matches of one or a list of keywords')),
         # Example: Google, Apple, Amazon,  Heartex Inc, etc.
+
         (2, _('all matches of a regex pattern')),
+        # Uploaded Gazetteer in JSON File:
+        # Example: {"COMPANY": ['Apple', 'Google', 'EY']}
+
+        (3, _('all matches of a regex pattern')),
         # Example: (?:Mr\.|Mrs\.) [a-zA-Z]+
-        (3, _('a script of a python function')),
+
+        (4, _('a script of a python function')),
         # Example: def factorial(num):\n\tfact=1\n\tfor i in range(1,num+1):\n\t\tfact = fact*i\n\treturn fact\nprint(factorial(3))
     )
 

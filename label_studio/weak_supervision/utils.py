@@ -1,5 +1,5 @@
 import spacy
-from spacy.tokens import Doc
+from spacy.tokens import Doc, Span
 from skweak.gazetteers import Trie
 from skweak.analysis import LFAnalysis
 from .models import aggregation_model
@@ -44,8 +44,7 @@ def get_lf_results(doc, lf_name):
 def gold_preds_to_spans(doc, gold_preds):
     gold_spans = []
     for ent in gold_preds:
-        offset = (ent["value"]["start"], ent["value"]
-                  ["end"], ent["value"]["labels"][0])
+        offset = (ent["value"]["start"][0], ent["value"]["end"][0], ent["value"]["labels"][0])
         gold_spans.append(offset)
 
     spans = [doc.char_span(x[0], x[1], label=x[2]) for x in gold_spans]
@@ -73,7 +72,7 @@ def get_gt_scores(docs, labels, gold='gold'):
 def get_weak_scores(docs, labels):
     lf_analysis = LFAnalysis(docs, labels)
     conflicts = lf_analysis.lf_conflicts()
-    coverages = lf_analysis.lf_conflicts()
+    coverages = lf_analysis.lf_coverages()
     overlaps = lf_analysis.lf_overlaps()
     scores = []
     for annotator, label_dict in overlaps.items():
@@ -135,3 +134,24 @@ def check_gold(docs):
         return True
     else:
         return False
+
+
+
+def ConLL2003Standardiser(doc):
+    for source in doc.spans:      
+        new_spans = []  
+        for span in doc.spans[source]:
+            if "\n" in span.text:
+                continue
+            elif span.label_=="PERSON":
+                new_spans.append(Span(doc, span.start, span.end, label="PER"))
+            elif span.label_ in {"ORGANIZATION", "ORGANISATION", "COMPANY"}:
+                new_spans.append(Span(doc, span.start, span.end, label="ORG"))
+            elif span.label_ in {"GPE"}:
+                new_spans.append(Span(doc, span.start, span.end, label="LOC"))
+            elif span.label_ in {"EVENT", "FAC", "LANGUAGE", "LAW", "NORP", "PRODUCT", "WORK_OF_ART", "CARDINAL", "ORDINAL", "QUANTITY", "MONEY", "PERCENT", "TIME", "DATE"}:
+                new_spans.append(Span(doc, span.start, span.end, label="MISC"))
+            else:
+                new_spans.append(span)         
+        doc.spans[source] = new_spans      
+    return doc

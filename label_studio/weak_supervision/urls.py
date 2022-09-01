@@ -10,16 +10,19 @@ router = DefaultRouter()
 router.register(r'docs', api.SpaCyGeneratorAPI, basename='spacy-apply')
 
 router.register(r'labelling_functions', api.LFCRUDAPI, basename='LF-CRUD')
-
 router.register(r'lf_annotate', api.LFAnnotationAPI, basename='run-function')
-
-router.register(r'agg_model', api.AggModelAPI, basename='Model-CRUD') # TODO:UpdateDelete
-
-router.register(r'agg_model_annotate', api.AggModelAnnotationAPI, basename='agg-apply')
-
 router.register(r'lf_metrics', api.LFmetricsAPI, basename='generate-lf-metrics')
 
+router.register(r'agg_model', api.AggModelAPI, basename='Model-CRUD') # TODO:UpdateDelete
+router.register(r'agg_model_annotate', api.AggModelAnnotationAPI, basename='agg-apply')
 router.register(r'agg_model_metrics', api.ModelmetricsAPI, basename='generate-model-metrics')
+
+router.register(r'lf_gazetteer', api.LFGazetterAPI, basename="gazetter")
+
+router.register(r'ner_model', api.SpacyModelCRUDAPI, basename="spacy_model")
+router.register(r'ner_model_annotate', api.SpacyModelAnnotationAPI, basename='run-spacy-model')
+router.register(r'ner_model_metrics', api.SpacyModelMetricsAPI, basename='generate-spacy-model-metrics')
+
 
 _api_LFs_urlpatterns = router.urls
 
